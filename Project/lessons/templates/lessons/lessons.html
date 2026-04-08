@@ -1,0 +1,7 @@
+{% for lesson in lessons %}
+    <div class="lesson">
+        <h2>{{ lesson.title }}</h2>
+        <p>{{ lesson.description }}</p>
+        <a href="{{ lesson.url }}">View Lesson</a>
+    </div>
+{% endfor %}
