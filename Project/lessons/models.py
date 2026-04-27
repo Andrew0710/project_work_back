@@ -1,93 +1,112 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.conf import settings
-from branches.models import Subject
+from branches.models import Subject, Branch
+from students.models import Student
 from groups.models import Group
 
-
-
-class LessonManager(models.Manager):
-    def check_conflicts(self, teacher, students, date , start_time,end_time,exclude_lesson = None):
-        conflicts = []
-        teacher_conflicts = self.filter(teacher=teacher, date=date).exclude(id=exclude_lesson.id if exclude_lesson else None)
-        for lesson in teacher_conflicts:
-            if (start_time < lesson.end_time and end_time > lesson.start_time):
-                conflicts.append(f"Teacher {teacher} has a conflict with lesson {lesson}.")
-
-        for student in students:
-            student_conflicts = self.filter(student__user=student.user, date=date).exclude(id=exclude_lesson.id if exclude_lesson else None)
-            for lesson in student_conflicts:
-                if (start_time < lesson.end_time and end_time > lesson.start_time):
-                    conflicts.append(f"Student {student} has a conflict with lesson {lesson}.")
-
-        return conflicts
-
-
 class Lesson(models.Model):
-    LESSON_TYPE_CHOICES = [
-        ('individual', 'Individual'),
-        ('group', 'Group'),
+    STATUS_CHOICES = [
+        ('SCHEDULED', 'Scheduled'),
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
     ]
-    lesson_type = models.CharField(max_length=20, choices=LESSON_TYPE_CHOICES, default='individual')
-    description = models.TextField()
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-    STATUS_CHOICES = [
-        ('scheduled', 'Scheduled'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
-    ]
-    lesson_status = models.CharField(choices=STATUS_CHOICES, max_length=20, default='scheduled')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SCHEDULED')
     
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='lessons')
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='lessons')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='lessons')
 
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='lessons')
-    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lessons', limit_choices_to={'role': 'teacher'})
-    student = models.ForeignKey('students.Student', on_delete=models.CASCADE, null=True, blank=True, related_name='individual_lessons')
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True, related_name='lessons')
+    # Якщо урок індивідуальний - заповнюється student, якщо груповий - group
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True, related_name='individual_lessons')
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True, related_name='group_lessons')
 
-    objects = LessonManager()
+    def clean(self):
+        super().clean()
+
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValidationError("Час закінчення має бути пізніше за час початку.")
+
+        # Перевірка: має бути вказана або група, або студент (але не обидва)
+        if self.student and self.group:
+            raise ValidationError("Урок не може бути одночасно індивідуальним і груповим.")
+        if not self.student and not self.group:
+            raise ValidationError("Необхідно вказати студента (для індив. уроку) або групу.")
+
+        if hasattr(self, 'teacher') and self.teacher and self.teacher.role != 'TEACHER':
+            raise ValidationError({"teacher": "Цей користувач не є вчителем."})
+
+        # --- Логіка перевірки конфліктів (накладок) ---
+        if self.date and self.start_time and self.end_time:
+            overlapping_lessons = Lesson.objects.filter(
+                date=self.date,
+                start_time__lt=self.end_time,
+                end_time__gt=self.start_time
+            ).exclude(pk=self.pk).exclude(status='CANCELLED')
+
+            # 1. Перевірка накладок для вчителя
+            if overlapping_lessons.filter(teacher=self.teacher).exists():
+                raise ValidationError({"teacher": "У вчителя вже є урок на цей час."})
+
+            # 2. Перевірка накладок для студентів
+            if self.student: # Для індивідуального уроку
+                # Перевіряємо чи є у цього студента індивідуальні уроки або групові уроки на цей час
+                student_conflict = overlapping_lessons.filter(
+                    models.Q(student=self.student) | models.Q(group__students=self.student)
+                ).exists()
+                if student_conflict:
+                    raise ValidationError({"student": "У студента вже є інший урок на цей час."})
+            
+            if self.group and self.group.pk: # Для групового уроку
+                # Отримуємо студентів групи і перевіряємо, чи немає в них накладок
+                group_students = self.group.students.all()
+                group_conflict = overlapping_lessons.filter(
+                    models.Q(student__in=group_students) | models.Q(group__students__in=group_students)
+                ).distinct().exists()
+                if group_conflict:
+                    raise ValidationError({"group": "Один або більше студентів з цієї групи мають інший урок у цей час."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.subject} - {self.date}"
-    
+        return f"{self.subject.name} - {self.date} {self.start_time.strftime('%H:%M')}"
 
 
+class Attendance(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='attendances')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
+    is_present = models.BooleanField(default=False)
+    note = models.TextField(blank=True, null=True)
 
+    class Meta:
+        unique_together = ('lesson', 'student') # Один запис на студента для уроку
 
+    def clean(self):
+        super().clean()
+        if hasattr(self, 'lesson') and self.lesson and hasattr(self, 'student') and self.student:
+            # Не можна відмітити для скасованого уроку
+            if self.lesson.status == 'CANCELLED':
+                raise ValidationError("Не можна відмічати відвідуваність для скасованого уроку.")
+            
+            # Перевіряємо, чи є студент учасником цього уроку
+            is_participant = False
+            if self.lesson.student == self.student:
+                is_participant = True
+            elif self.lesson.group and self.lesson.group.students.filter(id=self.student.id).exists():
+                is_participant = True
+            
+            if not is_participant:
+                raise ValidationError("Цього студента немає в списках на цей урок.")
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
-
-
-
-
-
-    # @property
-    # def participants(self):
-    #     if self.lesson_type == 'individual' and self.student:
-    #         return [self.student]
-    #     elif self.lesson_type == 'group' and self.group:
-    #         return list(self.group.members.all())
-    #     return []
-
-    # def clean(self):
-    #     from django.core.exceptions import ValidationError
-    #     if self.lesson_type == 'individual':
-    #         if not self.student:
-    #             raise ValidationError("Individual lessons must have a student assigned.")
-    #         if self.group:
-    #             raise ValidationError("Individual lessons cannot have a group assigned.")
-    #     elif self.lesson_type == 'group':
-    #         if not self.group:
-    #             raise ValidationError("Group lessons must have a group assigned.")
-    #         if self.student:
-    #             raise ValidationError("Group lessons cannot have a student assigned.")
-
-    # def save(self, *args, **kwargs):
-    #     self.clean()
-    #     # Check conflicts before saving
-    #     participants = self.participants
-    #     conflict = self.objects.check_conflicts(self.teacher, participants, self.date, self.start_time, self.end_time, exclude_lesson=self if self.pk else None)
-    #     if conflict:
-    #         from django.core.exceptions import ValidationError
-    #         raise ValidationError(conflict)
-    #     super().save(*args, **kwargs)
+    def __str__(self):
+        status = "Присутній" if self.is_present else "Відсутній"
+        return f"{self.student} - {self.lesson.date} ({status})"
