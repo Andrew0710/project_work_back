@@ -30,7 +30,7 @@ class CustomUser(AbstractUser):
     phone = models.CharField(max_length=12, unique=True)
     role = models.CharField(
         max_length=10,
-        choices=[('admin', 'Administrator'), ('teacher', 'Teacher')],
+        choices=[('admin', 'Administrator'), ('teacher', 'Teacher'), ('student', 'Student')],
         default='teacher'
     )
     
@@ -41,3 +41,4 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.phone})"
+    

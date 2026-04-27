@@ -19,6 +19,7 @@ from django.urls import path,include
 from rest_framework import routers, serializers, viewsets
 from users.models import CustomUser
 from users.views import LoginAPIView
+from lessons.views import LessonListView
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -42,5 +43,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("", include(router.urls)),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
-    path("login/",LoginAPIView.as_view(),name='login')
+    path("login/",LoginAPIView.as_view(),name='login'),
+    path("lessons/",LessonListView.as_view(), name='lesson-list')
 ]
