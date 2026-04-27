@@ -1,23 +1,34 @@
 from django.db import models
-from django.conf import settings
+from django.core.exceptions import ValidationError
 from branches.models import Branch, Subject
 from students.models import Student
+
 class SubscriptionPlan(models.Model):
-    name = models.CharField(max_length=255)
     PLAN_CHOICES = [
-        ('group', 'Групові заняття'),
-        ('individual', 'Індивідуальні заняття'),
+        ('individual', 'Individual'),
+        ('group', 'Group'),
     ]
-    plan_type = models.CharField(max_length=255, choices=PLAN_CHOICES)
-    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='plans')
+    name = models.CharField(max_length=255)
+    plan_type = models.CharField(max_length=20, choices=PLAN_CHOICES)
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='subscription_plans')
+    subjects = models.ManyToManyField(Subject, related_name='subscription_plans')
+    pricing_grid = models.JSONField(help_text='Формат: {"8": 200, "12": 180} (кількість уроків -> ціна за урок)')
+
     def __str__(self):
-        return f"{self.name} — {self.branch.name} ({self.get_plan_type_display()})"
+        return f"{self.name} ({self.branch.name})"
 
 class StudentSubscription(models.Model):
-    start_date = models.DateField()
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='subscriptions')
-    subscription = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='student_subscriptions')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='subject_subscriptions')
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='student_subscriptions')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    lessons_per_month = models.PositiveIntegerField()
+
+    def clean(self):
+        super().clean()
+        if self.plan_id and self.subject_id:
+            # Перевіряємо, чи дозволений цей предмет для даного плану
+            if not self.plan.subjects.filter(id=self.subject.id).exists():
+                raise ValidationError({"subject": "Цей предмет не входить у вибраний план підписки."})
+
     def __str__(self):
-        return f"{self.student} — {self.subscription.name} ({self.subject.name})"
-    
+        return f"{self.student} - {self.plan.name} ({self.subject.name})"
