@@ -1,7 +1,15 @@
+{% extends 'Project/base.html' %}
+
+{% block content %}
+<h2>Список уроків</h2>
+<a href="{% url 'home' %}">← Назад на головну</a>
+<hr>
 {% for lesson in lessons %}
-    <div class="lesson">
-        <h2>{{ lesson.subject }}</h2>
-        <p>{{ lesson.description }}</p>
-       
-    </div>
+<div class="lesson" style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+    <h3>{{ lesson.subject }}</h3>
+    <p>{{ lesson.description }}</p>
+</div>
+{% empty %}
+<p>Уроків поки немає.</p>
 {% endfor %}
+{% endblock %}

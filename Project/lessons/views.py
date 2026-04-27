@@ -4,7 +4,7 @@ from .models import Lesson
 
 class LessonListView(ListView):
     model = Lesson
-    template_name = 'lessons/lessons.html'
+    template_name = 'Project/lessons.html'
     context_object_name = 'lessons'
     paginate_by = 10
 
@@ -14,5 +14,3 @@ class LessonListView(ListView):
         if lesson_type in ['individual', 'group']:
             queryset = queryset.filter(lesson_type=lesson_type)
         return queryset
-
-

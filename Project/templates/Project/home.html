@@ -1,0 +1,14 @@
+{% extends 'Project/base.html' %}
+
+{% block content %}
+<h2>Головна сторінка</h2>
+{% if user.is_authenticated %}
+<p>Вітаємо, {{ user.first_name }}! Ваш телефон: {{ user.phone }}</p>
+<ul>
+    <li><a href="{% url 'lesson-list' %}">Список уроків</a></li>
+</ul>
+{% else %}
+<p>Будь ласка, увійдіть у систему.</p>
+<a href="{% url 'loginPage' %}">Логін</a>
+{% endif %}
+{% endblock %}

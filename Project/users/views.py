@@ -1,16 +1,21 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status,permissions
-from django.contrib.auth import login
-from .serializers import LoginSerializer
+from django.shortcuts import render, redirect
+from django.views import View
+from django.contrib import messages
+from .services import process_login
 
-class LoginAPIView(APIView):
-    # ДОДАНО: Дозволяємо доступ всім, навіть неавторизованим (бо це ж логін)
-    permission_classes = [permissions.AllowAny] 
+class LoginView(View):
+    def get(self, request):
+        if request.user.is_authenticated:
+            return redirect('home')
+        return render(request, 'Project/loginPage.html')
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data
-        login(request, user) # Авторизація через сесію
-        return Response({"message": "Успішний вхід!"}, status=status.HTTP_200_OK)
+        phone = request.POST.get('phone')
+        password = request.POST.get('password')
+    
+        success, error_message = process_login(request, phone, password)
+        if success:
+            return redirect('home')
+        
+        messages.error(request, error_message)
+        return redirect('loginPage')
