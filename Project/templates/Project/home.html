@@ -2,13 +2,30 @@
 
 {% block content %}
 <h2>Головна сторінка</h2>
-{% if user.is_authenticated %}
-<p>Вітаємо, {{ user.first_name }}! Ваш телефон: {{ user.phone }}</p>
 <ul>
-    <li><a href="{% url 'lesson-list' %}">Список уроків</a></li>
+    <li><a href="/api/docs/">Swagger / OpenAPI</a></li>
+    <li><a href="{% url 'lesson-list' %}">Список уроків (через REST API)</a></li>
+    <li><a href="#" id="logout-link">Вийти (JWT)</a></li>
 </ul>
-{% else %}
-<p>Будь ласка, увійдіть у систему.</p>
-<a href="{% url 'loginPage' %}">Логін</a>
-{% endif %}
+<p id="auth-status"></p>
+
+<script>
+const token = localStorage.getItem("access_token");
+const authStatus = document.getElementById("auth-status");
+const logoutLink = document.getElementById("logout-link");
+
+if (!token) {
+    authStatus.textContent = "Токен не знайдено. Виконайте вхід.";
+    window.location.href = "{% url 'loginPage' %}";
+} else {
+    authStatus.textContent = "JWT токен активний, REST API доступний.";
+}
+
+logoutLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    window.location.href = "{% url 'loginPage' %}";
+});
+</script>
 {% endblock %}

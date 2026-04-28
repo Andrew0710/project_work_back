@@ -2,6 +2,11 @@ from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
 from .services import process_login
+from rest_framework import viewsets
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .models import CustomUser
+from .serializers import UserSerializer, PhoneTokenObtainPairSerializer
+from .permissions import IsAdminOrReadOnly
 
 class LoginView(View):
     def get(self, request):
@@ -19,3 +24,13 @@ class LoginView(View):
         
         messages.error(request, error_message)
         return redirect('loginPage')
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all().order_by("id")
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class PhoneTokenObtainPairView(TokenObtainPairView):
+    serializer_class = PhoneTokenObtainPairSerializer

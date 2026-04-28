@@ -4,12 +4,47 @@
 <h2>Список уроків</h2>
 <a href="{% url 'home' %}">← Назад на головну</a>
 <hr>
-{% for lesson in lessons %}
-<div class="lesson" style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-    <h3>{{ lesson.subject }}</h3>
-    <p>{{ lesson.description }}</p>
-</div>
-{% empty %}
-<p>Уроків поки немає.</p>
-{% endfor %}
+<div id="lessons-list"></div>
+<p id="lessons-error" style="color: red;"></p>
+
+<script>
+const lessonsList = document.getElementById("lessons-list");
+const errorElement = document.getElementById("lessons-error");
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "{% url 'loginPage' %}";
+}
+
+async function loadLessons() {
+    const response = await fetch("/api/lessons/", {
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+        }
+    });
+
+    if (!response.ok) {
+        errorElement.textContent = "Не вдалося завантажити уроки. Перевірте токен/права доступу.";
+        return;
+    }
+
+    const lessons = await response.json();
+    if (!lessons.length) {
+        lessonsList.innerHTML = "<p>Уроків поки немає.</p>";
+        return;
+    }
+
+    lessonsList.innerHTML = lessons.map((lesson) => `
+        <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+            <h3>Урок #${lesson.id}</h3>
+            <p>Дата: ${lesson.date}</p>
+            <p>Час: ${lesson.start_time} - ${lesson.end_time}</p>
+            <p>Статус: ${lesson.status}</p>
+        </div>
+    `).join("");
+}
+
+loadLessons();
+</script>
 {% endblock %}

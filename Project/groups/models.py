@@ -15,6 +15,9 @@ class Group(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='groups')
     students = models.ManyToManyField(Student, related_name='student_groups')
 
+    class Meta:
+        unique_together = ("name", "branch")
+
     def __str__(self):
         return f"{self.name} ({self.branch.name})"
 

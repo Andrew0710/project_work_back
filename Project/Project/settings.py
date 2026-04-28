@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
 
     'rest_framework',
+    'drf_spectacular',
     'branches',
     'lessons',
     'students',
@@ -131,9 +132,17 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 
 REST_FRAMEWORK = {
-    # Use Django's standard `django.contrib.auth` permissions,
-    # or allow read-only access for unauthenticated users.
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly"
-    ]
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Project API",
+    "DESCRIPTION": "REST API for branches, groups, lessons, subscriptions and students.",
+    "VERSION": "1.0.0",
 }

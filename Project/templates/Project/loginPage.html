@@ -2,8 +2,7 @@
 
 {% block content %}
 <h2>Вхід в систему</h2>
-<form method="post" action="{% url 'loginPage' %}">
-    {% csrf_token %}
+<form id="login-form">
     <div class="form-group">
         <label for="phone">Номер телефону</label><br>
         <input type="text" id="phone" name="phone" required>
@@ -16,4 +15,34 @@
     <br>
     <button type="submit">Увійти</button>
 </form>
+<p id="error-message" style="color: red;"></p>
+
+<script>
+const form = document.getElementById("login-form");
+const errorElement = document.getElementById("error-message");
+
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    errorElement.textContent = "";
+
+    const phone = document.getElementById("phone").value;
+    const password = document.getElementById("password").value;
+
+    const response = await fetch("/api/auth/token/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, password }),
+    });
+
+    if (!response.ok) {
+        errorElement.textContent = "Невірний номер або пароль.";
+        return;
+    }
+
+    const data = await response.json();
+    localStorage.setItem("access_token", data.access);
+    localStorage.setItem("refresh_token", data.refresh);
+    window.location.href = "/";
+});
+</script>
 {% endblock %}

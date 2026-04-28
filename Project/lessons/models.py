@@ -38,6 +38,12 @@ class Lesson(models.Model):
 
         if hasattr(self, 'teacher') and self.teacher and self.teacher.role != 'TEACHER':
             raise ValidationError({"teacher": "Цей користувач не є вчителем."})
+        if self.subject and self.branch and self.subject.branch_id != self.branch_id:
+            raise ValidationError({"subject": "Предмет має належати тій же філії, що й урок."})
+        if self.student and self.branch and self.student.branch_id != self.branch_id:
+            raise ValidationError({"student": "Студент має належати тій же філії, що й урок."})
+        if self.group and self.branch and self.group.branch_id != self.branch_id:
+            raise ValidationError({"group": "Група має належати тій же філії, що й урок."})
 
         # --- Логіка перевірки конфліктів (накладок) ---
         if self.date and self.start_time and self.end_time:

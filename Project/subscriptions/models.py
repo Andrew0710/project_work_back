@@ -23,12 +23,17 @@ class StudentSubscription(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     lessons_per_month = models.PositiveIntegerField()
 
+    class Meta:
+        unique_together = ("student", "subject")
+
     def clean(self):
         super().clean()
         if self.plan_id and self.subject_id:
             # Перевіряємо, чи дозволений цей предмет для даного плану
             if not self.plan.subjects.filter(id=self.subject.id).exists():
                 raise ValidationError({"subject": "Цей предмет не входить у вибраний план підписки."})
+        if self.plan_id and self.student_id and self.plan.branch_id != self.student.branch_id:
+            raise ValidationError({"plan": "План і студент мають належати до однієї філії."})
 
     def __str__(self):
         return f"{self.student} - {self.plan.name} ({self.subject.name})"

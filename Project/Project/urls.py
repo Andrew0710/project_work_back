@@ -19,10 +19,35 @@ from django.urls import path, include
 from django.views.generic import TemplateView
 from users.views import LoginView
 from lessons.views import LessonListView
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from branches.views import BranchViewSet, SubjectViewSet
+from groups.views import GroupViewSet
+from students.views import StudentViewSet
+from lessons.views import LessonViewSet, AttendanceViewSet
+from subscriptions.views import SubscriptionPlanViewSet, StudentSubscriptionViewSet
+from users.views import UserViewSet, PhoneTokenObtainPairView
+
+router = DefaultRouter()
+router.register("users", UserViewSet, basename="users")
+router.register("branches", BranchViewSet, basename="branches")
+router.register("subjects", SubjectViewSet, basename="subjects")
+router.register("students", StudentViewSet, basename="students")
+router.register("groups", GroupViewSet, basename="groups")
+router.register("lessons", LessonViewSet, basename="lessons")
+router.register("attendances", AttendanceViewSet, basename="attendances")
+router.register("subscription-plans", SubscriptionPlanViewSet, basename="subscription-plans")
+router.register("student-subscriptions", StudentSubscriptionViewSet, basename="student-subscriptions")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("login/", LoginView.as_view(), name='loginPage'),
     path("lessons/", LessonListView.as_view(), name='lesson-list'),
     path("", TemplateView.as_view(template_name='Project/home.html'), name='home'),
+    path("api/", include(router.urls)),
+    path("api/auth/token/", PhoneTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
