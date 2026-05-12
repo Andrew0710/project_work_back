@@ -12,7 +12,6 @@ class Branch(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
 
     def delete(self, *args, **kwargs):
-        # Забороняємо видалення філії, якщо є студенти або розкладені уроки
         has_active_students = self.students.filter(status='active').exists()
         has_active_lessons = self.lessons.exclude(status='CANCELLED').exists()
         
@@ -34,7 +33,7 @@ class Subject(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='subjects')
 
     class Meta:
-        unique_together = ('name', 'branch') # Назва предмету унікальна в межах філії
+        unique_together = ('name', 'branch')
 
     def __str__(self):
         return f"{self.name} ({self.branch.name})"

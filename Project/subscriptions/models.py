@@ -26,7 +26,6 @@ class StudentSubscription(models.Model):
     def clean(self):
         super().clean()
         if self.plan_id and self.subject_id:
-            # Перевіряємо, чи дозволений цей предмет для даного плану
             if not self.plan.subjects.filter(id=self.subject.id).exists():
                 raise ValidationError({"subject": "Цей предмет не входить у вибраний план підписки."})
 
